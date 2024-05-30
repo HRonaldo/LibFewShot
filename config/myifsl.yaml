@@ -1,0 +1,111 @@
+include:
+  - headers/data.yaml
+  - headers/device.yaml
+  - headers/misc.yaml
+  - headers/model.yaml
+  - headers/optimizer.yaml
+
+# pretrain_path: ./results/checkpoint.pth
+
+
+way_num: 5
+shot_num: 1
+query_num: 15
+episode_size: 2
+train_episode: 2000
+test_episode: 600
+
+device_ids: 1
+n_gpu: 1
+epoch: 100
+
+optimizer:
+  name: Adam
+  kwargs:
+    lr: 1e-4
+  other: ~
+
+backbone:
+  name: Conv64F
+  kwargs:
+    is_flatten: False
+    is_feature: False
+    leaky_relu: False
+    negative_slope: 0.2
+    last_pool: True
+
+classifier:
+  name: MTL
+  kwargs:
+    feat_dim: 1600
+    num_classes: 64
+    inner_param:
+      lr: 1e-2
+      train_iter: 5
+      test_iter: 10
+    use_MTL: True
+    ifsl_param:
+      feature_path: "none"
+      n_splits: 8
+      temp: 5
+      class_num: 64
+      d_feature: "ed"
+      preprocess_after_split: "none"
+      preprocess_before_split: "none"
+      logit_fusion: "product" #in ["linear_sum","product","sum","harmonic"]
+      fusion: "concat" #in ["concat","+","-"]
+      sum_log: True
+      approx: False
+      single: False
+      use_counterfactual: False
+      x_zero: False
+      is_cosine_feature: True
+      use_x_only: False
+      normalize_before_center: False
+      normalize_d: False
+      normalize_ed: False
+
+
+# backbone:
+#   name: resnet12
+#   kwargs:
+#     keep_prob: 0.0
+
+# classifier:
+#   name: MTL
+#   kwargs:
+#     feat_dim: 640
+#     num_classes: 64
+#     inner_param:
+#       iter: 10
+#     use_MTL: True
+
+
+# backbone:
+#   name: resnet18
+#   kwargs: ~
+
+# classifier:
+#   name: MTL
+#   kwargs:
+#     feat_dim: 512
+#     num_classes: 64
+#     inner_param:
+#       iter: 10
+#     use_MTL: True
+
+
+# backbone:
+#   name: WRN
+#   kwargs:
+#     depth: 28
+#     widen_factor: 10
+
+# classifier:
+#   name: MTL
+#   kwargs:
+#     feat_dim: 640
+#     num_classes: 64
+#     inner_param:
+#       iter: 10
+#     use_MTL: True

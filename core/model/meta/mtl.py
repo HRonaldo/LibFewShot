@@ -1,23 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-@inproceedings{DBLP:conf/cvpr/SunLCS19,
-  author    = {Qianru Sun and
-               Yaoyao Liu and
-               Tat{-}Seng Chua and
-               Bernt Schiele},
-  title     = {Meta-Transfer Learning for Few-Shot Learning},
-  booktitle = {{IEEE} Conference on Computer Vision and Pattern Recognition, {CVPR}
-               2019, Long Beach, CA, USA, June 16-20, 2019},
-  pages     = {403--412},
-  year      = {2019},
-  url       = {http://openaccess.thecvf.com/content_CVPR_2019/html/Sun_Meta-Transfer_Learning_for_Few
-  -Shot_Learning_CVPR_2019_paper.html},
-  doi       = {10.1109/CVPR.2019.00049}
-}
-https://arxiv.org/abs/1812.02391
-
-Adapted from https://github.com/yaoyao-liu/meta-transfer-learning.
-"""
 import torch
 from torch import digamma, nn
 import torch.nn.functional as F
@@ -26,6 +6,7 @@ import copy
 from core.utils import accuracy
 from .meta_model import MetaModel
 from ..backbone.utils import convert_mtl_module
+from ...utils.ifsl_utils import IFSLUtils
 
 
 class MTLBaseLearner(nn.Module):
@@ -55,17 +36,19 @@ class MTLBaseLearner(nn.Module):
 
 
 class MTL(MetaModel):
-    def __init__(self, feat_dim, num_classes, inner_param, use_MTL, **kwargs):
+    def __init__(self, feat_dim, num_classes, inner_param, ifsl_param, use_MTL, **kwargs):
         super(MTL, self).__init__(**kwargs)
         self.feat_dim = feat_dim
         self.num_classes = num_classes
 
-        self.base_learner = MTLBaseLearner(self.way_num, z_dim=self.feat_dim).to(
-            self.device
-        )
+        self.base_learner = MTLBaseLearner(self.way_num, z_dim=self.feat_dim).to(self.device)
         self.inner_param = inner_param
 
         self.loss_func = nn.CrossEntropyLoss()
+        self.ifsl_param = ifsl_param
+        
+        # 调用类
+        self.utils = IFSLUtils(self.emb_func, feat_dim, ifsl_param, self.device)
 
         convert_mtl_module(self, use_MTL)
 
@@ -78,17 +61,13 @@ class MTL(MetaModel):
         global_target = global_target.to(self.device)
 
         feat = self.emb_func(image)
+        support_feat, query_feat, support_target, query_target = self.split_by_episode(feat, mode=4)
 
-        support_feat, query_feat, support_target, query_target = self.split_by_episode(
-            feat, mode=4
-        )
+        # 使用 IFSLUtils 进行特征处理和融合
+        fused_support, fused_query, _ = self.utils.fusing(support_feat, query_feat)
+        classifier, base_learner_weight = self.set_forward_adaptation(fused_support, support_target)
 
-        classifier, base_learner_weight = self.set_forward_adaptation(
-            support_feat, support_target
-        )
-
-        output = classifier(query_feat, base_learner_weight)
-
+        output = classifier(fused_query, base_learner_weight)
         acc = accuracy(output, query_target.contiguous().reshape(-1))
 
         return output, acc
@@ -102,16 +81,13 @@ class MTL(MetaModel):
         global_target = global_target.to(self.device)
 
         feat = self.emb_func(image)
+        support_feat, query_feat, support_target, query_target = self.split_by_episode(feat, mode=4)
 
-        support_feat, query_feat, support_target, query_target = self.split_by_episode(
-            feat, mode=4
-        )
+        # 使用 IFSLUtils 进行特征处理和融合
+        fused_support, fused_query, _ = self.utils.fusing(support_feat, query_feat)
+        classifier, base_learner_weight = self.set_forward_adaptation(fused_support, support_target)
 
-        classifier, base_learner_weight = self.set_forward_adaptation(
-            support_feat, support_target
-        )
-
-        output = classifier(query_feat, base_learner_weight)
+        output = classifier(fused_query, base_learner_weight)
         loss = self.loss_func(output, query_target.contiguous().reshape(-1))
         acc = accuracy(output, query_target)
 

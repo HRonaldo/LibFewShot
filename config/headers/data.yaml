@@ -1,4 +1,4 @@
-data_root: /data/fewshot/miniImageNet--ravi
+data_root: /data1/student/hxh/LibFewShot/miniImageNet--ravi
 image_size: 84
 use_memory: False
 augment: True
